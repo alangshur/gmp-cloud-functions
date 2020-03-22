@@ -12,10 +12,8 @@ const db = admin.firestore();
 // (AUTH) add user to firestore upon creation
 exports.addUser = functions.auth.user().onCreate(user => {
     return db.collection('users').doc(user.uid).set({
-        profile: {
-            username: '',
-            photoURL: '',
-            location: ''
-        }
+        id: user.uid,
+        name: user.displayName,
+        email: user.email,
     });
 });
