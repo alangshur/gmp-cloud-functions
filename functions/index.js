@@ -1,9 +1,11 @@
 const functions = require('firebase-functions');
+const admin = require('firebase-admin');
 var cors = require('cors')({ origin: true });
 
-const admin = require('firebase-admin');
 admin.initializeApp(functions.config().firebase);
 const db = admin.firestore();
+
+const SURVEY_QUESTIONS = 4;
 
 
 
@@ -27,7 +29,7 @@ exports.addUser = functions.auth.user().onCreate(user => {
 /*** SURVEY FUNCTIONS ***/
 
 // (HTTP) update user's survey answers
-exports.updateSurvey = functions.https.onRequest((request, response) => {
+exports.updateSurvey = functions.https.onRequest(async (request, response) => {
     try {
 
         // handle preflight
@@ -48,7 +50,17 @@ exports.updateSurvey = functions.https.onRequest((request, response) => {
 
         // fetch survey data
         const surveyAnswers = request.get('Survey');
-        console.log(surveyAnswers);
+        if (!surveyAnswers) throw new Error('surv-r');
+
+        // validate survey answers
+        for (var i = 0; i < SURVEY_QUESTIONS; i++) {
+            if ((surveyAnswers[i] < 0) || (surveyAnswers[i] > 10))
+                throw new Error('surv-q');
+        }
+
+        // update survey answers
+        const userRef = db.collection('users').doc(userId);
+        await userRef.update({ surveyAnswers: surveyAnswers });
 
         // return https response
         cors(request, response, () => {
@@ -61,8 +73,11 @@ exports.updateSurvey = functions.https.onRequest((request, response) => {
 
         // select error message
         switch (err.message) {
-            case 'auth-r': message = 'Error authenticating user. Please refresh page.'; break;
-            case 'auth-f': message = 'Error authenticating user. Please refresh page.'; break;
+            case 'auth-r': message = 'Error authenticating user. Please wait and try again.'; break;
+            case 'auth-f': message = 'Error authenticating user. Please wait and try again.'; break;
+            case 'surv-r': message = 'Error retrieving survey. Please wait and try again.'; break;
+            case 'surv-q': message = 'Please answers all questions before submitting.'; break;
+            default: message = 'Unexpected server error. Please wait and try again.'; break;
         }
 
         cors(request, response, () => {
