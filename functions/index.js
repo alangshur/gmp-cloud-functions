@@ -1,10 +1,16 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 var cors = require('cors')({ origin: true });
+const { 
+    getNextMatchingDate,
+    getCurrentMatchingDate
+} = require('./util');
 
+// initialze app
 admin.initializeApp(functions.config().firebase);
 const db = admin.firestore();
 
+// initialize constants
 const SURVEY_QUESTIONS = 4;
 
 
@@ -19,8 +25,8 @@ exports.addUser = functions.auth.user().onCreate(user => {
         email: user.email,
 
         surveyAnswers: null,
-        lastSignup: null,
-        currentMatch: null
+        currentMatch: null,
+        signups: []
     });
 });
 
@@ -28,7 +34,7 @@ exports.addUser = functions.auth.user().onCreate(user => {
 
 /*** SURVEY FUNCTIONS ***/
 
-// (HTTP) update user's survey answers
+// (HTTP) update user survey answers
 exports.updateSurvey = functions.https.onRequest(async (request, response) => {
     try {
 
@@ -49,18 +55,49 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
         );
 
         // fetch survey data
-        const surveyAnswers = request.get('Survey');
+        var surveyAnswers = request.get('Survey');
         if (!surveyAnswers) throw new Error('surv-r');
+        surveyAnswers = surveyAnswers.split(',');
 
         // validate survey answers
         for (var i = 0; i < SURVEY_QUESTIONS; i++) {
-            if ((surveyAnswers[i] < 0) || (surveyAnswers[i] > 10))
-                throw new Error('surv-q');
+            const val = Number(surveyAnswers[i]);
+            if ((val < 0) || (val > 10)) throw new Error('surv-q');
+            surveyAnswers[i] = val;
         }
 
-        // update survey answers
+        // create read-write transaction
+        const next = getNextMatchingDate();
         const userRef = db.collection('users').doc(userId);
-        await userRef.update({ surveyAnswers: surveyAnswers });
+        await db.runTransaction(transaction => {
+            return transaction.get(userRef).then(user => {
+                if (!user.exists) throw new Error('user-f');
+                else {
+
+                    // increment matching user count
+                    const matchingRef = db.collection('matchings').doc(next);
+                    if (!user.data().signups.includes(next)) {
+                        transaction.update(matchingRef, { 
+                            userCount: admin.firestore.FieldValue.increment(1)
+                        });
+                    }
+                    
+                    // update user survey answers
+                    const userRef = db.collection('users').doc(userId);
+                    transaction.update(userRef, { 
+                        surveyAnswers: surveyAnswers,
+                        signups: admin.firestore.FieldValue.arrayUnion(next)
+                    });        
+
+                    // add user to next matching
+                    const matchingUserRef = matchingRef.collection('signups').doc(userId);
+                    transaction.set(matchingUserRef, {
+                        id: userId, 
+                        surveyAnswers: surveyAnswers 
+                    });
+                }
+            });
+        });
 
         // return https response
         cors(request, response, () => {
@@ -75,6 +112,7 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
         switch (err.message) {
             case 'auth-r': message = 'Error authenticating user. Please wait and try again.'; break;
             case 'auth-f': message = 'Error authenticating user. Please wait and try again.'; break;
+            case 'user-f': message = 'Error retrieving user. Please wait and try again.'; break;
             case 'surv-r': message = 'Error retrieving survey. Please wait and try again.'; break;
             case 'surv-q': message = 'Please answers all questions before submitting.'; break;
             default: message = 'Unexpected server error. Please wait and try again.'; break;
