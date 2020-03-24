@@ -3,7 +3,8 @@ const admin = require('firebase-admin');
 var cors = require('cors')({ origin: true });
 const { 
     getNextMatchingDate,
-    getCurrentMatchingDate
+    getCurrentMatchingDate,
+    validateCountryRegion
 } = require('./util');
 
 // initialze app
@@ -21,10 +22,14 @@ const SURVEY_QUESTIONS = 4;
 exports.addUser = functions.auth.user().onCreate(user => {
     return db.collection('users').doc(user.uid).set({
         id: user.uid,
-        name: user.displayName,
         email: user.email,
 
+        name: user.displayName,
+        age: '',
+        country: '',
+        region: '',
         surveyAnswers: null,
+
         currentMatch: null,
         signups: []
     });
@@ -57,12 +62,26 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
         // fetch survey data
         var surveyAnswers = request.get('Survey');
         if (!surveyAnswers) throw new Error('surv-r');
-        surveyAnswers = surveyAnswers.split(',');
+        surveyAnswers = surveyAnswers.split(','); 
+
+        // fetch field data
+        var age = request.get('Age');
+        if (!age) throw new Error('age-r');
+        var country = request.get('Country');
+        if (!country) throw new Error('country-r');
+        var region = request.get('Region');
+        if (!region) throw new Error('region-r');
+
+        // validate field data
+        if (isNaN(age) || (Number(age) < 12) || (Number(age) > 110)) 
+            throw new Error('age-v');
+        if (!validateCountryRegion(country, region))
+            throw new Error('loc-v');
 
         // validate survey answers
         for (var i = 0; i < SURVEY_QUESTIONS; i++) {
             const val = Number(surveyAnswers[i]);
-            if ((val < 0) || (val > 10)) throw new Error('surv-q');
+            if ((val < 0) || (val > 10)) throw new Error('surv-v');
             surveyAnswers[i] = val;
         }
 
@@ -73,10 +92,11 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
             return transaction.get(userRef).then(user => {
                 if (!user.exists) throw new Error('user-f');
                 else {
+                    const userData = user.data();
 
                     // increment matching user count
                     const matchingRef = db.collection('matchings').doc(next);
-                    if (!user.data().signups.includes(next)) {
+                    if (!userData.signups.includes(next)) {
                         transaction.update(matchingRef, { 
                             userCount: admin.firestore.FieldValue.increment(1)
                         });
@@ -85,6 +105,9 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
                     // update user survey answers
                     const userRef = db.collection('users').doc(userId);
                     transaction.update(userRef, { 
+                        age: age,
+                        country: country,
+                        region: region,
                         surveyAnswers: surveyAnswers,
                         signups: admin.firestore.FieldValue.arrayUnion(next)
                     });        
@@ -93,6 +116,11 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
                     const matchingUserRef = matchingRef.collection('signups').doc(userId);
                     transaction.set(matchingUserRef, {
                         id: userId, 
+                        name: userData.name,
+                        email: userData.email,
+                        age: age,
+                        country: country,
+                        region: region,
                         surveyAnswers: surveyAnswers 
                     });
                 }
@@ -101,7 +129,7 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
 
         // return https response
         cors(request, response, () => {
-            response.send({ success: true });
+            response.status(200).send({ success: true });
         });
     }
     catch (err) {
@@ -114,12 +142,17 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
             case 'auth-f': message = 'Error authenticating user. Please wait and try again.'; break;
             case 'user-f': message = 'Error retrieving user. Please wait and try again.'; break;
             case 'surv-r': message = 'Error retrieving survey. Please wait and try again.'; break;
-            case 'surv-q': message = 'Please answers all questions before submitting.'; break;
+            case 'age-r': message = 'Error retrieving age. Please wait and try again.'; break;
+            case 'country-r': message = 'Error retrieving country. Please wait and try again.'; break;
+            case 'region-r': message = 'Error retrieving region. Please wait and try again.'; break;
+            case 'age-v': message = 'Please enter a valid age in years.'; break;
+            case 'loc-v': message = 'Please select a valid country and region.'; break;
+            case 'surv-v': message = 'Please answers all questions before submitting.'; break;
             default: message = 'Unexpected server error. Please wait and try again.'; break;
         }
 
         cors(request, response, () => {
-            response.send({
+            response.status(200).send({
                 success: false,
                 message: message
             });
