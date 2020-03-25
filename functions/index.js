@@ -22,15 +22,17 @@ const SURVEY_QUESTIONS = 4;
 exports.addUser = functions.auth.user().onCreate(user => {
     return db.collection('users').doc(user.uid).set({
         id: user.uid,
-        email: user.email,
 
         name: user.displayName,
-        age: '',
-        country: '',
-        region: '',
+        email: user.email,
+        age: null,
+        country: null,
+        region: null,
         surveyAnswers: null,
 
-        currentMatch: null,
+        currentMatching: null,
+        currentMatchId: null,
+
         signups: []
     });
 });
@@ -138,13 +140,13 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
 
         // select error message
         switch (err.message) {
-            case 'auth-r': message = 'Error authenticating user. Please wait and try again.'; break;
-            case 'auth-f': message = 'Error authenticating user. Please wait and try again.'; break;
-            case 'user-f': message = 'Error retrieving user. Please wait and try again.'; break;
-            case 'surv-r': message = 'Error retrieving survey. Please wait and try again.'; break;
-            case 'age-r': message = 'Error retrieving age. Please wait and try again.'; break;
-            case 'country-r': message = 'Error retrieving country. Please wait and try again.'; break;
-            case 'region-r': message = 'Error retrieving region. Please wait and try again.'; break;
+            case 'auth-r': message = 'Failed to authenticate user. Please wait and try again.'; break;
+            case 'auth-f': message = 'Failed to authenticate user. Please wait and try again.'; break;
+            case 'user-f': message = 'Failed to retrieve user. Please wait and try again.'; break;
+            case 'surv-r': message = 'Failed to retrieve survey. Please wait and try again.'; break;
+            case 'age-r': message = 'Failed to retrieve age. Please wait and try again.'; break;
+            case 'country-r': message = 'Failed to retrieve country. Please wait and try again.'; break;
+            case 'region-r': message = 'Failed to retrieve region. Please wait and try again.'; break;
             case 'age-v': message = 'Please enter a valid age in years.'; break;
             case 'loc-v': message = 'Please select a valid country and region.'; break;
             case 'surv-v': message = 'Please answers all questions before submitting.'; break;
