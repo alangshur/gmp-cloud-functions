@@ -1,4 +1,4 @@
-var countryRegionData = require("react-country-region-selector")
+var countryRegionData = require("react-country-region-selector");
 
 // get start day of next matching (deadline)
 exports.getNextMatchingDate = () => {
@@ -25,4 +25,46 @@ exports.validateCountryRegion = (country, region) => {
     }
 
     return false;
+}
+
+// randomly select adjacent age bucket
+exports.pickAgeBucket = age => {
+    const option = Math.floor(Math.random() * 3);
+
+    if ((numAge == 16) || numAge == 17) {
+        if ((option == 0) || (option == 1)) return '16-17';
+        else return '18-19';
+    }
+    else if ((numAge == 108) || numAge == 109) {
+        if ((option == 0) || (option == 1)) return '108-109';
+        else return '106-107';
+    }
+    else if (numAge % 2) {
+        if (option == 0) return (numAge - 3) + '-' + (numAge - 2);
+        else if (option == 1) return (numAge - 1) + '-' + numAge;
+        else return (numAge + 1) + '-' + (numAge + 2);
+    }
+    else {
+        if (option == 0) return (numAge - 2) + '-' + (numAge - 1);
+        else if (option == 1) return numAge + '-' + (numAge + 1);
+        else return (numAge + 2) + '-' + (numAge + 3);
+    }
+};
+
+// select placement for questions
+exports.pickPlacementBuckets = (questionMap, surveyAnswers) => {
+    var placementBuckets = [];
+
+    for (var i = 0; i < questionMap.length; i++) {
+        const questions = questionMap[i];
+        var sum = 0;
+
+        for (var j = 0; j < questions.length; j++)
+            sum += surveyAnswers[questions[j]];
+
+        const average = sum / questions.length;
+        if (average < 4) placementBuckets.push('0');
+        else if (average > 6) placementBuckets.push('2');
+        else placementBuckets.push('1');
+    }
 }

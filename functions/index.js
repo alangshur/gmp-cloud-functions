@@ -3,8 +3,9 @@ const admin = require('firebase-admin');
 var cors = require('cors')({ origin: true });
 const { 
     getNextMatchingDate,
-    getCurrentMatchingDate,
-    validateCountryRegion
+    validateCountryRegion,
+    pickAgeBucket,
+    pickPlacementBuckets
 } = require('./util');
 
 // initialze app
@@ -12,7 +13,15 @@ admin.initializeApp(functions.config().firebase);
 const db = admin.firestore();
 
 // initialize constants
-const SURVEY_QUESTIONS = 4;
+const QUESTION_COUNT = 4;
+const QUESTION_MAP = [
+    [],
+    [],
+    [],
+    [],
+    [],
+    []
+];
 
 
 
@@ -30,10 +39,10 @@ exports.addUser = functions.auth.user().onCreate(user => {
         region: null,
         surveyAnswers: null,
 
-        currentMatching: null,
-        currentMatchId: null,
+        signups: [],
 
-        signups: []
+        currentMatching: null,
+        currentMatchId: null
     });
 });
 
@@ -42,7 +51,7 @@ exports.addUser = functions.auth.user().onCreate(user => {
 /*** SURVEY FUNCTIONS ***/
 
 // (HTTP) update user survey answers
-exports.updateSurvey = functions.https.onRequest(async (request, response) => {
+exports.submitSurvey = functions.https.onRequest(async (request, response) => {
     try {
 
         // handle preflight
@@ -75,17 +84,21 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
         if (!region) throw new Error('region-r');
 
         // validate field data
-        if (isNaN(age) || (Number(age) < 12) || (Number(age) > 110)) 
+        if (isNaN(age) || (Number(age) < 16) || (Number(age) > 109)) 
             throw new Error('age-v');
         if (!validateCountryRegion(country, region))
             throw new Error('loc-v');
 
         // validate survey answers
-        for (var i = 0; i < SURVEY_QUESTIONS; i++) {
+        for (var i = 0; i < QUESTION_COUNT; i++) {
             const val = Number(surveyAnswers[i]);
             if ((val < 0) || (val > 10)) throw new Error('surv-v');
             surveyAnswers[i] = val;
         }
+
+        // pick placements
+        const ageBucket = pickAgeBucket(Number(age));
+        const placementBuckets = pickPlacementBuckets(QUESTION_MAP, surveyAnswers);
 
         // create read-write transaction
         const next = getNextMatchingDate();
@@ -94,25 +107,27 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
             return transaction.get(userRef).then(user => {
                 if (!user.exists) throw new Error('user-f');
                 else {
+
+                    // enforce a single signup
                     const userData = user.data();
+                    if (userData.signups.includes(next))
+                        throw new Error('signup');
 
                     // increment matching user count
                     const matchingRef = db.collection('matchings').doc(next);
-                    if (!userData.signups.includes(next)) {
-                        transaction.update(matchingRef, { 
-                            userCount: admin.firestore.FieldValue.increment(1)
-                        });
-                    }
+                    transaction.update(matchingRef, { 
+                        signupCount: admin.firestore.FieldValue.increment(1)
+                    });
                     
                     // update user survey answers
                     const userRef = db.collection('users').doc(userId);
-                    transaction.update(userRef, { 
+                    transaction.update(userRef, {
                         age: age,
                         country: country,
                         region: region,
                         surveyAnswers: surveyAnswers,
                         signups: admin.firestore.FieldValue.arrayUnion(next)
-                    });        
+                    });
 
                     // add user to next matching
                     const matchingUserRef = matchingRef.collection('signups').doc(userId);
@@ -123,7 +138,9 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
                         age: age,
                         country: country,
                         region: region,
-                        surveyAnswers: surveyAnswers 
+
+                        ageBucket: ageBucket,
+                        placementBuckets: placementBuckets
                     });
                 }
             });
@@ -135,7 +152,7 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
         });
     }
     catch (err) {
-        console.log('updateSurvey: ' + err);
+        console.log('submitSurvey: ' + err);
         var message = '';
 
         // select error message
@@ -150,6 +167,7 @@ exports.updateSurvey = functions.https.onRequest(async (request, response) => {
             case 'age-v': message = 'Please enter a valid age in years.'; break;
             case 'loc-v': message = 'Please select a valid country and region.'; break;
             case 'surv-v': message = 'Please answers all questions before submitting.'; break;
+            case 'signup': message = 'You may only sign up once for a given matching.'; break;
             default: message = 'Unexpected server error. Please wait and try again.'; break;
         }
 
