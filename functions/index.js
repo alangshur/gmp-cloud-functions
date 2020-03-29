@@ -3,6 +3,8 @@ const admin = require('firebase-admin');
 var cors = require('cors')({ origin: true });
 const { 
     getNextMatchingDate,
+    getCurrentMatchingDate,
+    getPreviousMatchingDate,
     validateCountryRegion,
     pickAgeBucket,
     pickPlacementBuckets
@@ -179,3 +181,20 @@ exports.submitSurvey = functions.https.onRequest(async (request, response) => {
         });
     }
 });
+
+
+
+/*** SURVEY FUNCTIONS ***/
+
+exports.updateActiveMatching = functions.pubsub.schedule('0 0 * * 6')
+    .timeZone('Etc/UTC').onRun(context => {
+        const matchingsRef = db.collection('matchings');
+        const previousRef = matchingsRef.doc(getPreviousMatchingDate());
+        const currentRef = matchingsRef.doc(getCurrentMatchingDate());
+        var batch = db.batch();
+
+        // set inactive/active
+        batch.update(previousRef, { active: false });
+        batch.update(currentRef, { active: true });
+        batch.commit();
+    });

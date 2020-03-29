@@ -7,10 +7,17 @@ exports.getNextMatchingDate = () => {
     return (now.getUTCMonth() + 1) + '-' + now.getUTCDate() + '-' + now.getUTCFullYear();
 }
 
-// get start day of last matching (deadline)
+// get start day of current matching (deadline)
 exports.getCurrentMatchingDate = () => {
     var now = new Date();
-    now.setUTCDate(now.getUTCDate() + (12 - now.getUTCDay()) % 7 - 7);
+    now.setUTCDate(now.getUTCDate() + ((12 - now.getUTCDay()) % 7) - 7);
+    return (now.getUTCMonth() + 1) + '-' + now.getUTCDate() + '-' + now.getUTCFullYear();
+}
+
+// get start day of previous matching (deadline)
+exports.getPreviousMatchingDate = () => {
+    var now = new Date();
+    now.setUTCDate(now.getUTCDate() + ((12 - now.getUTCDay()) % 7) - 14);
     return (now.getUTCMonth() + 1) + '-' + now.getUTCDate() + '-' + now.getUTCFullYear();
 }
 
