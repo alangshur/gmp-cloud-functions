@@ -16,14 +16,7 @@ const db = admin.firestore();
 
 // initialize constants
 const QUESTION_COUNT = 4;
-const QUESTION_MAP = [
-    [],
-    [],
-    [],
-    [],
-    [],
-    []
-];
+const QUESTION_MAP = [];
 
 
 
@@ -98,10 +91,6 @@ exports.submitSurvey = functions.https.onRequest(async (request, response) => {
             surveyAnswers[i] = val;
         }
 
-        // pick placements
-        const ageBucket = pickAgeBucket(Number(age));
-        const placementBuckets = pickPlacementBuckets(QUESTION_MAP, surveyAnswers);
-
         // create read-write transaction
         const next = getNextMatchingDate();
         const userRef = db.collection('users').doc(userId);
@@ -141,8 +130,9 @@ exports.submitSurvey = functions.https.onRequest(async (request, response) => {
                         country: country,
                         region: region,
 
-                        ageBucket: ageBucket,
-                        placementBuckets: placementBuckets
+                        ageBucket: pickAgeBucket(Number(age)),
+                        placementBuckets: pickPlacementBuckets(QUESTION_MAP, surveyAnswers),
+                        timestamp: admin.firestore.FieldValue.serverTimestamp()
                     });
                 }
             });
