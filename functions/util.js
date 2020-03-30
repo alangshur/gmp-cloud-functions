@@ -1,4 +1,4 @@
-var countryRegionData = require("react-country-region-selector");
+var countryRegionData = require('react-country-region-selector');
 
 // get start day of next matching (deadline)
 exports.getNextMatchingDate = () => {
@@ -26,7 +26,7 @@ exports.validateCountryRegion = (country, region) => {
     const data = countryRegionData.CountryRegionData;
     for (var i = 0; i < data.length; i++) {
         if (country === data[i][0]) {
-            if (data[i][2].includes(region)) return true;
+            if (data[i][2].split(/[~|]+/).includes(region)) return true;
             else return false;
         }
     }

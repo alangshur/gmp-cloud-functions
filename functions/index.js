@@ -16,7 +16,12 @@ const db = admin.firestore();
 
 // initialize constants
 const QUESTION_COUNT = 4;
-const QUESTION_MAP = [];
+const QUESTION_MAP = []; 
+/* 
+ *  NOTE: Map categories are of decreasing severity (users 
+ *  with different answers to lower-index categories are 
+ *  far less likely to be placed together).
+*/
 
 
 
@@ -121,8 +126,8 @@ exports.submitSurvey = functions.https.onRequest(async (request, response) => {
                     });
 
                     // add user to next matching
-                    const matchingUserRef = matchingRef.collection('signups').doc(userId);
-                    transaction.set(matchingUserRef, {
+                    const signupRef = matchingRef.collection('signups').doc(userId);
+                    transaction.set(signupRef, {
                         id: userId, 
                         name: userData.name,
                         email: userData.email,
