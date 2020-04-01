@@ -66,8 +66,11 @@ exports.pickPlacementBuckets = (questionMap, surveyAnswers) => {
         const questions = questionMap[i];
         var sum = 0;
 
-        for (var j = 0; j < questions.length; j++)
-            sum += surveyAnswers[questions[j]];
+        for (var j = 0; j < questions.length; j++) {
+            val = surveyAnswers[questions[j]];
+            weight = Math.abs(val - 5) / 6 + 1;
+            sum += weight * val;
+        }
 
         const average = sum / questions.length;
         if (average < 4) placementBuckets.push('0');

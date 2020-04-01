@@ -16,7 +16,14 @@ const db = admin.firestore();
 
 // initialize constants
 const QUESTION_COUNT = 4;
-const QUESTION_MAP = []; 
+const QUESTION_MAP = [
+    [ 4, 11 ], 
+    [ 7, 13 ],
+    [ 14, 8, 2 ], 
+    [ 10, 5, 0 ], 
+    [ 6, 1, 12 ], 
+    [ 3, 9 ]
+]; 
 /* 
  *  NOTE: Map categories are of decreasing severity (users 
  *  with different answers to lower-index categories are 
