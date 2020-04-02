@@ -15,7 +15,7 @@ admin.initializeApp(functions.config().firebase);
 const db = admin.firestore();
 
 // initialize constants
-const QUESTION_COUNT = 4;
+const QUESTION_COUNT = 15;
 const QUESTION_MAP = [
     [ 4, 11 ], 
     [ 7, 13 ],
@@ -97,6 +97,8 @@ exports.submitSurvey = functions.https.onRequest(async (request, response) => {
             throw new Error('loc-v');
 
         // validate survey answers
+        if (surveyAnswers.length !== QUESTION_COUNT) 
+            throw new Error('surv-v');
         for (var i = 0; i < QUESTION_COUNT; i++) {
             const val = Number(surveyAnswers[i]);
             if ((val < 0) || (val > 10)) throw new Error('surv-v');

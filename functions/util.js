@@ -68,7 +68,7 @@ exports.pickPlacementBuckets = (questionMap, surveyAnswers) => {
 
         for (var j = 0; j < questions.length; j++) {
             val = surveyAnswers[questions[j]];
-            weight = Math.abs(val - 5) / 6 + 1;
+            weight = Math.abs(val - 5) / 8 + 1;
             sum += weight * val;
         }
 
