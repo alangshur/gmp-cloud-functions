@@ -39,7 +39,7 @@ exports.addUser = functions.auth.user().onCreate(user => {
     return db.collection('users').doc(user.uid).set({
         id: user.uid,
 
-        name: user.displayName,
+        name: user.displayName.split(' ')[0],
         email: user.email,
         age: null,
         country: null,
